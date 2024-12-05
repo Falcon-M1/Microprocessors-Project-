@@ -1,13 +1,13 @@
-include mymacros.inc
+        EXTRN DrawTarget:FAR
+        PUBLIC X,Y,Color
 .model small
 .stack 64
 .data
-  X dw 0
-  Y dw 15
-  red db 4h
-  blue db 1h
+  X db 0
+  Y db 15
+  Color db 4h
   c1 db 5
-  c2 db 3
+  c2 db 2
 
 .code
 main proc far
@@ -26,14 +26,18 @@ main proc far
   
   Loop1:
     mov X,0
-    mov c2,3
+    mov c2,2
     Loop2:
-      DrawTarget X,Y,red
+      mov Color,4h
+      call DrawTarget
       add X,51
-      DrawTarget X,Y,blue
+      mov Color,1h
+      call DrawTarget
       add X,51
       dec c2
       jnz Loop2
+    mov Color,4h
+    call DrawTarget
     add Y,19
     dec c1
     jnz Loop1
