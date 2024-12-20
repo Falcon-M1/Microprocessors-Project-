@@ -1,35 +1,8 @@
-1-Draw the lower Rectangle (the paddle)
-2-Add Keyboard Movements
-3-Draw the ball And add its Physics 
-4-Add the Bricks and Let the ball capable of Breaking it (add two-collision-break Bricks As well)
-5-Add lives -> Not Losing The game Instantly
-6-Add Score (10-pts per Brick)
-7-Add Power Ups 
-	recommendations:
-		Shields - to prevent the ball from falling
-		Double the balls - to Double the Amount of Balls
-		Fire Ball - Change the color of the ball and let it get throw any Brick
-		Size Multiplier - Increase the length of your Paddle 
-8-Add Obstacles
-	recommendations:
-		Shields - to stop the ball from getting to the Bricks
-		Rocks - that destroys the Paddle if touched it
-9-Start Screen (with a Chat Button)
-	- Specify Your name
-	- Start A game (1v1 or alone)
-	- Chat
-10-Stop Screen (u can't stop in multiplayer)
-11-Add 1-vs-1 Mode
-	- Assign The 1vs1 Button to it
-
-
-Multiplayer Game Mode (Beshoy's Vision):- 
-	-Two Games Where Every Game 1 Player Trying to Stop The other From Winning (By trying To stop the ball from hitting the Bricks by it's paddle) 
-	-Adding A 1-min timer for Every game
-	-The Player With Higher Score Wins
-	-If The two Players got the Same Score then it's A draw
-	**this way is easy because we just need to add one more paddle and a timer to the game**
-	**if The timer Ends or the Bricks All got Broken or the first player lost the Game Continue Immediately**
-
-
---feel free to add Your Multiplayer Game Mode Idea
+->bricks colliding 
+->add lives        (done)
+->handle restarting the game (done)
+->handle winning (done)
+->Main Menu 1.single player 2.multiplayer 3.chat (done)
+-------------------------------------------------
+chat 
+multiplayer mode  (required)
