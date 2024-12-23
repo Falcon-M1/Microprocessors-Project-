@@ -43,6 +43,8 @@ IsDestroied db 40 Dup(0),'$' ;(isdestroied1,isdestroied2,isdestroied3,....,isdes
 brickXY dw 0,0
         ;(x0,y0)
 
+mode db 0
+
 ;Game status
 lives dw 3
 needrestart db 0
@@ -74,6 +76,16 @@ Main proc; Improved code for BricksColliding procedure
     call GraphicsMode
     call MainMenu
     call GraphicsMode
+    
+    cmp mode,1
+    jz SinglePlayer
+    cmp mode,2
+    jz Multiplayer
+    cmp mode,3
+    jz Chat
+
+    SinglePlayer:
+    
     call DrawBricks
 
 
@@ -136,10 +148,19 @@ Main proc; Improved code for BricksColliding procedure
     lost:
        call GraphicsMode
        call YouLost
+       jmp exit
 
     win:
         call GraphicsMode  
-        call YouWon 
+        call YouWon
+        jmp exit
+    Multiplayer:
+      ;Multiplayer
+      jmp exit
+
+    Chat:
+      ;Chat
+      jmp exit  
 
     exit:
         mov ah, 4ch
@@ -729,7 +750,7 @@ MainMenu proc
     mov dx,offset MainMenuMessage
     int 21h
     PressKey:
-      mov ah,0
+      mov ah,01
       int 16h
       mov ah,'s'
       cmp al,ah
@@ -746,6 +767,27 @@ MainMenu proc
     mov ah,07
     int 21h
     pop ax
+    mov ah,'s'
+    cmp al,ah
+    jz SMode
+    mov ah,'m'
+    cmp al,ah
+    jz MMode
+    mov ah,'s'
+    cmp al,ah
+    jz CMode
+
+    SMode:
+      mov mode,1
+      jmp MainMenuEnd
+    MMode:
+      mov mode,2
+      jmp MainMenuEnd
+    CMode:
+      mov mode,3
+      jmp MainMenuEnd
+
+    MainMenuEnd: 
     pop dx
     pop cx
     pop bx
