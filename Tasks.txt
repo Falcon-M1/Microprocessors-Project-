@@ -1,4 +1,4 @@
-->bricks colliding 
+->bricks colliding  (done)
 ->add lives        (done)
 ->handle restarting the game (done)
 ->handle winning (done)
