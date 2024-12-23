@@ -57,6 +57,10 @@ winMessage      DB 0AH, 0DH, "     ==============================      "
                 DB 0AH, 0DH, "     ====     3ash You Won! :)  ===      "
                 DB 0AH, 0DH, "     ==============================      "
                 DB 0AH, 0DH, "     ==============================      $"
+StartMessage   db "Please select mode!",10,13,"$"
+MainMenuMessage db "    S - Single Player           ",10,13,
+                   "              M - Multiplayer             ",10,13,
+                   "              C - Chat                    ","$"
 ;random
 color db 2
 
@@ -67,6 +71,8 @@ Main proc; Improved code for BricksColliding procedure
     mov ax,@DATA
     mov ds,ax
 
+    call GraphicsMode
+    call MainMenu
     call GraphicsMode
     call DrawBricks
 
@@ -704,6 +710,48 @@ DestroyBricK proc ; destroies the brick (cx,dx)
     RET
 DestroyBricK Endp
 
+MainMenu proc
+    push ax
+    push bx
+    push cx
+    push dx
+    mov ah,2
+    mov dh,0
+    mov dl,120
+    int 10h
+    mov ah,9
+    mov dx,offset StartMessage
+    int 21h
+    mov ah,2
+    mov dx,0A0Ah
+    int 10h 
+    mov ah,9
+    mov dx,offset MainMenuMessage
+    int 21h
+    PressKey:
+      mov ah,0
+      int 16h
+      mov ah,'s'
+      cmp al,ah
+      jz PressKeyExit
+      mov ah,'m'
+      cmp al,ah
+      jz PressKeyExit
+      mov ah,'c'
+      cmp al,ah
+      jz PressKeyExit
+      jmp PressKey
+    PressKeyExit:
+    push ax   
+    mov ah,07
+    int 21h
+    pop ax
+    pop dx
+    pop cx
+    pop bx
+    pop ax   
+    ret
+MainMenu endp
 
 End Main
 
