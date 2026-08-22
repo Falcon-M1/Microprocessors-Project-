@@ -23,14 +23,16 @@ Paddlemid dw 20
 ;ball  info
 vx dw 0
 vy dw 0
-ballIsMoving db 0
 ballx1 dw 158
 bally1 dw 188
 ballx2 dw 162
 bally2 dw 192
-ballSlow dw 500
+ballslowconst dw 10
+ballSlow dw 10
 ballSize db 5
 ballmid dw 2
+
+
 
 ;Bricks info 23(brick) 10(space)
 brickW dw 23
@@ -41,30 +43,73 @@ Score db '0','0','$'
 BricksCount dw 40
 IsDestroied db 40 Dup(0),'$' ;(isdestroied1,isdestroied2,isdestroied3,....,isdestroiedn,'$')
 brickXY dw 0,0
+brickSend dw 0
         ;(x0,y0)
 
 mode db 0
 
 ;Game status
-lives dw 3
+lives db 3
 needrestart db 0
-LossMessage     DB 0AH, 0DH, "     ==============================      "
-                DB 0AH, 0DH, "     ==============================      "
-                DB 0AH, 0DH, "     ====     YOU LOST! :(     ====      "
-                DB 0AH, 0DH, "     ==============================      "
-                DB 0AH, 0DH, "     ==============================      $"
+LossMessage     db 0AH, 0DH, "     ==============================      "
+db 0AH, 0DH, "     ==============================      "
+db 0AH, 0DH, "     ====     YOU LOST! :(     ====      "
+db 0AH, 0DH, "     ==============================      "
+db 0AH, 0DH, "     ==============================      $"
 
-winMessage      DB 0AH, 0DH, "     ==============================      "
-                DB 0AH, 0DH, "     ==============================      "
-                DB 0AH, 0DH, "     ====     3ash You Won! :)  ===      "
-                DB 0AH, 0DH, "     ==============================      "
-                DB 0AH, 0DH, "     ==============================      $"
+
+winMessage      db 10, 13, "     ==============================      "
+db 10, 13, "     ==============================      "
+db 10, 13, "     ====     3ash You Won! :)  ===      "
+db 10, 13, "     ==============================      "
+db 10, 13, "     ==============================      $"
+
 StartMessage   db "Please select mode!",10,13,"$"
-MainMenuMessage db "    S - Single Player           ",10,13,
-                   "              M - Multiplayer             ",10,13,
-                   "              C - Chat                    ","$"
+
+MainMenuMessage db "    S - Single Player           ",10,13
+db "              M - Multiplayer             ",10,13
+db "              C - Chat                    ","$"
+
+
+
+
 ;random
 color db 2
+
+;chat
+chatX1 db 0
+chatX2 db 0
+ChatY1 db 0
+ChatY2 db 13
+ChatLineStart db 12
+ChatLineMsg db 80 DUP('-') , '$'
+ChatEnded db 0
+
+;Multiplayer
+
+WaitingMessages  db 10, 13, "     ==============================      "
+db 10, 13, "     ==============================      "
+db 10, 13, "         Waiting For Other Player        "
+db 10, 13, "     ==============================      "
+db 10, 13, "     ==============================      $"
+IsMultiplayer db 0
+Score2 db '0','0','$'
+
+;JoinedPaddle
+JPaddleX1 dw 140
+JPaddleX2 dw 180
+JPaddleY1 dw 80
+JPaddleY2 dw 85
+JPaddleSpeed dw 3
+JPaddleW dw 41
+JPaddleH dw 6
+JPaddlemid dw 20
+
+;Host db 0
+
+;Timer
+;Timer db '0','0','$'
+
 
 .code
 Main proc; Improved code for BricksColliding procedure
@@ -73,94 +118,59 @@ Main proc; Improved code for BricksColliding procedure
     mov ax,@DATA
     mov ds,ax
 
-    call GraphicsMode
-    call MainMenu
-    call GraphicsMode
     
-    cmp mode,1
-    jz SinglePlayer
-    cmp mode,2
-    jz Multiplayer
-    cmp mode,3
-    jz Chat
-
-    SinglePlayer:
-    
-    call DrawBricks
 
 
-
-    restart:
-        call DeleteBall
-        mov needrestart,0
-        call DrawPaddle
-        call SetBallValues
-        call DrawBall
-
-
-    ReadInput:
-
-        cmp lives,0
-        je lost
-        cmp BricksCount,0
-        je win
-
-        mov ah, 01h         
-        int 16h     
-        jz noKey
-        mov ah, 00h        
-        int 16h  ;the input now in al do what u want
-        
-       
-        ;moving the paddle
-        mov cx,PaddleSpeed
-        cmp al,97
-        je molf
-        cmp al,100
-        je mort
-        cmp al,20h
-        mov vy,1
-
-        noKey:
-        call MoveBall
-        cmp needrestart,1
-        je restart
-
-        call UpdateScore
-
-        jmp ReadInput      ; Continue checking for input
-
-    molf: 
-        l: call Moveleft
-           dec cx
-           jnz l
-        jmp noKey
-    mort:
-        r: call Moveright
-           dec cx
-           jnz r
-        jmp noKey
-    
-    Waiting:
-        mov ah,07h
+    MainMenuStart:
+        call GraphicsMode
+        mov ah,2
+        mov dh,0
+        mov dl,120
+        int 10h
+        mov ah,9
+        mov dx,offset StartMessage
         int 21h
+        mov ah,2
+        mov dx,0A0Ah
+        int 10h 
+        mov ah,9
+        mov dx,offset MainMenuMessage
+        int 21h
+    PressKey:
+        mov ah,01
+        int 16h
+        jz PressKey
+        mov ah,00h
+        int 16h
+        cmp al,'s'
+        jz SMode
+        cmp al,'m'
+        jz MMode
+        cmp al,'c'
+        jz CMode
+        cmp al,1Bh
+        je exit
+        jmp PressKey
+           
+   
+    SMode:
+        call SinglePlayer
+        jmp MainMenuStart
+    MMode:
+        call Multiplayer
+        jmp MainMenuStart
+    CMode:    
+        call Chat
+        jmp MainMenuStart
 
-    lost:
-       call GraphicsMode
-       call YouLost
-       jmp exit
 
-    win:
-        call GraphicsMode  
-        call YouWon
-        jmp exit
-    Multiplayer:
-      ;Multiplayer
-      jmp exit
 
-    Chat:
-      ;Chat
-      jmp exit  
+    
+
+  
+ 
+
+    
 
     exit:
         mov ah, 4ch
@@ -220,8 +230,7 @@ DrawPaddle proc
             jbe LooponY
         inc cx
         cmp cx,Paddlex2
-        jbe LoopOnX
-    mov ballIsMoving,0    
+        jbe LoopOnX 
     pop ax    
     pop dx
     pop cx
@@ -241,7 +250,7 @@ YouLost proc
 YouLost Endp
 
 YouWon proc
-  push ax
+    push ax
     push dx
     LEA DX, winMessage
     MOV AH, 9
@@ -250,6 +259,18 @@ YouWon proc
     pop ax
     RET
 YouWon Endp
+
+
+WaitingScreen proc
+    push ax
+    push dx
+    LEA DX, WaitingMessages
+    MOV AH, 9
+    int 21h
+    pop dx
+    pop ax
+    RET 
+WaitingScreen Endp
 
 
 Moveleft proc
@@ -341,7 +362,8 @@ MoveBall proc
     push dx
     dec ballSlow
     jnz skipball
-    mov ballslow,500
+    mov cx,ballslowconst
+    mov ballslow,cx
     mov cx,vx
     mov dx,vy
     call DeleteBall
@@ -404,7 +426,6 @@ DeleteBall proc
     pop cx
     RET
 DeleteBall Endp
-
 BallColliding proc 
     push ax
     push cx
@@ -421,14 +442,14 @@ BallColliding proc
     paddleCheck:
         mov ax,ballx1
         cmp ax,paddlex2  
-        ja leftWallCheck
+        ja JoinedPaddleDownSide
         mov ax,ballx2
         cmp ax,paddlex1
-        jb leftWallCheck
+        jb JoinedPaddleDownSide
         mov ax,bally2
         add ax,1
         cmp ax,paddley1
-        jb leftWallCheck
+        jb JoinedPaddleDownSide
         mov vy,-1
         
         mov dx,ballx1
@@ -447,26 +468,128 @@ BallColliding proc
         ApoveBallPaddle:
             mov vx,1
             jmp ColideFound
-
+            
         BelowBallPaddle:
             mov vx,-1
             jmp ColideFound
+            
+
+    
+
+    JoinedPaddleDownSide:
+        cmp IsMultiplayer,0
+        je leftWallCheckHelper
+        mov ax,ballx1
+        cmp ax,JPaddleX2
+        ja JoinedPaddleUPSide
+        mov ax,ballx2
+        cmp ax,jpaddlex1
+        jb JoinedPaddleUPSide
+        mov ax,bally2
+        inc ax
+        cmp ax,jpaddley1
+        jne JoinedPaddleUPSide 
+        mov vy,-1
+        mov dx,ballx1
+        add dx,ballmid
+        mov cx,Jpaddlex1
+        add cx,JPaddlemid
+        cmp dx,cx
+        je EqualBallJPaddleDown
+        ja ApoveBallJPaddleDown
+        jb BelowBallJPaddleDowm
+
+        EqualBallJPaddleDown:
+            mov vx,0
+            jmp ColideFound
+
+        ApoveBallJPaddleDown:
+            mov vx,1
+            jmp ColideFound
+            
+        BelowBallJPaddleDowm:
+            mov vx,-1
+            jmp ColideFound
+
+    leftWallCheckHelper: jmp leftWallCheck
+
+    JoinedPaddleUPSide:
+        mov ax,ballx1
+        cmp ax,JPaddleX2
+        ja JoinedPaddleLeftSide
+        mov ax,ballx2
+        cmp ax,jpaddlex1
+        jb JoinedPaddleLeftSide
+        mov ax,bally1
+        dec ax
+        cmp ax,jpaddley2
+        jne JoinedPaddleLeftSide
+        mov vy,1
+        mov dx,ballx1
+        add dx,ballmid
+        mov cx,Jpaddlex1
+        add cx,JPaddlemid
+        cmp dx,cx
+        je EqualBallJPaddleUP
+        ja ApoveBallJPaddleUP
+        jb BelowBallJPaddleUP
+        
+
+        EqualBallJPaddleUP:
+            mov vx,0
+            jmp ColideFound
+
+        ApoveBallJPaddleUP:
+            mov vx,1
+            jmp ColideFound
+            
+        BelowBallJPaddleUP:
+            mov vx,-1
+            jmp ColideFound
+
+    JoinedPaddleLeftSide:
+        mov ax,bally1
+        cmp ax,jpaddley2
+        ja JoinedPaddleRightSide
+        mov ax,bally2
+        cmp ax,jpaddley1
+        jb JoinedPaddleRightSide
+        mov ax,ballx1
+        dec ax
+        cmp ax,jpaddlex2
+        jne JoinedPaddleRightSide
+        mov vx,1
+        jmp ColideFound
+        
+    JoinedPaddleRightSide:
+        mov ax,bally1
+        cmp ax,jpaddley2
+        ja leftWallCheck
+        mov ax,bally2
+        cmp ax,jpaddley1
+        jb leftWallCheck
+        mov ax,ballx2
+        inc ax
+        cmp ax,jpaddlex1
+        jne leftWallCheck
+        mov vx,-1
+        jmp ColideFound
 
 
     leftWallCheck:
-        cmp ballx2,319
+        cmp ballx2,318
         jb rightWallCheck
         mov vx,-1
         jmp ColideFound
 
     rightWallCheck:
-        cmp ballx1,0
+        cmp ballx1,1
         ja upperWallCheck
         mov vx,1
         jmp ColideFound
 
     upperWallCheck:
-        cmp bally1,0
+        cmp bally1,1
         ja BricksCheck
         mov vy,1
         jmp ColideFound
@@ -481,7 +604,6 @@ BallColliding proc
         RET        
 BallColliding Endp
 
-
 SetBallValues proc
     mov vx,0
     mov vy,0
@@ -491,12 +613,14 @@ SetBallValues proc
     mov bally2,192 
     RET
 SetBallValues Endp
-
 DrawBricks proc ;(23,9)
     push ax
     push dx
     push cx
     push bx
+    push si
+    mov BricksCount,40
+
     
     mov cx,0
     mov ax,0h
@@ -530,14 +654,24 @@ DrawBricks proc ;(23,9)
             cmp bx,80
             jne BricksX
         
+    mov si,0
+    SetBack:
+        mov IsDestroied[si],0
+        inc si
+        cmp si,40
+        jbe SetBack
 
+    mov Score[0],'0'
+    mov Score[1],'0'
 
+    pop si
     pop bx
     pop cx
     pop dx
     pop ax
     RET
 DrawBricks Endp
+
 
 BricksColliding proc
     push ax
@@ -574,7 +708,9 @@ BricksColliding proc
             dec bx
             cmp ax,bx
             jne UpSide
-
+            
+            mov brickSend,si
+            add brickSend,1
             call DestroyBricK
             mov ax,vy
             sub vy,ax
@@ -656,8 +792,9 @@ BricksColliding proc
             mov bx,cx
             cmp ax,bx
             jne BrickIsAllreadyCollided
-
+            
             call DestroyBricK
+            
             mov ax,vx
             sub vx,ax
             sub vx,ax
@@ -675,6 +812,9 @@ BricksColliding proc
         jb Helper2
 
     BrickCollided:
+        mov ah,2
+    mov dl,7
+    int 21h  
         pop si
         pop dx
         pop bx
@@ -682,7 +822,7 @@ BricksColliding proc
         pop ax
         RET
 BricksColliding Endp
-
+    
 
 DestroyBricK proc ; destroies the brick (cx,dx)
     push cx
@@ -706,7 +846,6 @@ DestroyBricK proc ; destroies the brick (cx,dx)
     mov bx,dx
     add bx,brickH
 
-
     DeleteBrickX:
         push dx
         DeleteBrickY:
@@ -723,6 +862,12 @@ DestroyBricK proc ; destroies the brick (cx,dx)
         cmp cx,ax
         jbe DeleteBrickX   
 
+    cmp IsMultiplayer,0
+    je NotMultiplayer    
+
+    call sendIncScore
+
+    NotMultiplayer:
     pop bx
     pop ax    
     pop si
@@ -731,69 +876,1362 @@ DestroyBricK proc ; destroies the brick (cx,dx)
     RET
 DestroyBricK Endp
 
-MainMenu proc
+SinglePlayer proc
+    push ax
+    push cx
+
+    mov ballslowconst,300
+
+    mov IsMultiplayer,0
+    call GraphicsMode
+    call DrawBricks
+    mov BricksCount,40
+    mov lives,3
+ 
+    restart:
+        call DeleteBall
+        mov needrestart,0
+        call DrawPaddle
+        call SetBallValues
+        call DrawBall
+
+    ReadInput:
+
+        cmp lives,0
+        je lost
+        cmp BricksCount,0
+        je win
+
+        mov ah, 01h         
+        int 16h     
+        jz noKey
+        mov ah, 00h        
+        int 16h  ;the input now in al do what u want
+        
+       
+        ;moving the paddle
+        cmp al,1Bh
+        je endsingleplayer
+        mov cx,PaddleSpeed
+        cmp al,97
+        je molf
+        cmp al,100
+        je mort
+        cmp al,20h
+        jne noKey
+        cmp vy,0
+        jne noKey
+        mov vy,1
+
+        noKey:
+        call MoveBall
+        cmp needrestart,1
+        je restart
+
+        call UpdateScore
+        call DrawLives
+
+        jmp ReadInput      ; Continue checking for input
+
+        molf: 
+        l: call Moveleft
+           dec cx
+           jnz l
+        jmp noKey
+        mort:
+        r: call Moveright
+           dec cx
+           jnz r
+        jmp noKey
+    
+        
+
+    lost:
+        call GraphicsMode
+        call YouLost
+        mov cx,1000
+        call Delay
+        jmp endsingleplayer
+
+    win:
+        call GraphicsMode 
+        call YouWon 
+        mov cx,1000
+        call Delay
+        jmp endsingleplayer
+
+    endsingleplayer:
+        pop cx
+        pop ax
+        RET    
+ 
+SinglePlayer endp
+
+
+Delay proc ; put in cx the time in ms
+    push ax
+    push cx
+    push dx            
+    MOV DX, 1600  ;1600000 clock tick per second           
+
+    DelayOuterLoop:
+        MOV AX, DX              
+    DelayInnerLoop:
+        DEC AX                  
+        JNZ DelayInnerLoop    
+
+        DEC CX                  
+        JNZ DelayOuterLoop  
+    pop ax
+    pop cx
+    pop dx
+    RET
+Delay Endp
+
+TextMode proc
+    push ax
+        mov ah,0
+        mov al,03
+        int 10h
+    pop ax
+    RET
+TextMode Endp
+
+
+DrawMidLine proc
+    push ax
+    push dx
+    mov dl,0
+    mov dh,ChatLineStart
+    call MoveCursor
+    mov ah, 09 
+    mov dx, offset ChatLineMsg
+    int 21h
+    pop dx
+    pop ax
+    RET
+DrawMidLine Endp
+
+    
+Chat proc
     push ax
     push bx
     push cx
     push dx
-    mov ah,2
-    mov dh,0
-    mov dl,120
+    push si
+    call TextMode
+
+    call DrawMidLine
+
+    ; initinalizitions
+    mov dx,3fbh 			
+    mov al,10000000b		
+    out dx,al				
+    mov dx,3f8h			
+    mov al,0ch			
+    out dx,al
+    mov dx,3f9h
+    mov al,00h
+    out dx,al
+    mov dx,3fbh
+    mov al,00011011b
+    out dx,al
+
+  
+    SendReceive:
+        mov cx,2
+        call Send
+        cmp ChatEnded,1
+        je EndedChat
+        call Receive
+        loop SendReceive
+
+
+   
+    EndedChat:
+        pop si
+        pop dx
+        pop cx
+        pop bx
+        pop ax
+        mov ChatEnded,0
+        mov chatX1,0
+        mov ChatY1,0
+        mov chatX2,0
+        mov ChatY2,13
+        RET
+Chat Endp
+
+Send Proc
+    push ax
+    push dx
+
+    mov dl,chatX1
+    mov dh,ChatY1
+    call MoveCursor
+
+    ReadDataToSend:
+        mov ah, 01h   
+        mov al,0h      
+        int 16h  
+        cmp al,0h  
+        je NothingSent
+        mov ah,00h
+        int 16h
+        cmp al,1Bh
+        jne CheckReciverReady
+        jmp ESCAPE
+        
+            
+
+    CheckReciverReady:
+        push ax
+        mov dx , 3FDH
+        in al, dx
+        and al, 00100000b
+        jnz SendData
+        pop ax
+        jmp ReciverNotReady
+        SendData:
+            pop ax
+            mov dx , 3F8H
+            out dx,al
+            
+            cmp al,13
+            je ENTSend
+
+            mov ah,02
+            mov dl,al
+            int 21h
+            jmp sendchk 
+
+            ENTSend:
+                mov dl,10
+                int 21h
+                mov dl,13
+                int 21h
+                mov chatX1,-1
+                inc chatY1
+
+            sendchk:
+                cmp chatX1,79
+                jne NextCharInLineSend
+                mov chatX1,0
+                inc chatY1
+                jmp DataSent
+            NextCharInLineSend:
+                mov al,12
+                cmp chatY1,al
+                je SScroll
+                inc chatX1
+                jmp DataSent
+            SScroll:
+                call ScrollSend
+                mov chatX1,0
+                mov chatY1,11
+                call DrawMidLine
+                jmp DataSent
+
+    
+
+    ESCAPE:
+        mov ChatEnded,1
+    DataSent:
+    NothingSent:
+    ReciverNotReady:
+        pop dx
+        pop ax
+        RET
+Send Endp
+
+Receive proc
+    push dx
+    push ax
+    checkifsomthingtoReceive:
+        mov dx , 3FDH		
+    	in al , dx 
+        AND al , 1
+        JZ NothingReceived    
+    Receiving:
+        mov dx , 03F8H
+        in al , dx
+
+        mov dl,chatX2
+        mov dh,chatY2
+        call MoveCursor 
+
+        mov ah,02
+        mov dl,al
+        int 21h
+
+        cmp al,13
+        je ENTRecive
+
+            mov ah,02
+            mov dl,al
+            int 21h
+            jmp recivechk 
+
+            ENTRecive:
+                mov dl,10
+                int 21h
+                mov dl,13
+                int 21h
+                mov chatX2,-1
+                inc chatY2
+
+        recivechk:
+            cmp chatX2,79
+            jne NextCharInLineReceive
+            mov chatX2,0
+            inc chatY2
+            jmp DataSent
+        NextCharInLineReceive:
+            mov al,24
+            cmp chatY2,al
+            je RScroll
+            inc chatX2
+            jmp DataSent
+        RScroll:
+            call ScrollRecive
+            mov chatX2,0
+            mov chatY2,23
+            call DrawMidLine
+            jmp DataSent
+
+        
+
+
+    NothingReceived:
+        pop ax
+        pop dx
+        RET
+Receive Endp
+
+MoveCursor proc ;(dl,dh)
+    push ax
+    mov ah,02
     int 10h
-    mov ah,9
-    mov dx,offset StartMessage
-    int 21h
-    mov ah,2
-    mov dx,0A0Ah
-    int 10h 
-    mov ah,9
-    mov dx,offset MainMenuMessage
-    int 21h
-    PressKey:
-      mov ah,01
-      int 16h
-      mov ah,'s'
-      cmp al,ah
-      jz PressKeyExit
-      mov ah,'m'
-      cmp al,ah
-      jz PressKeyExit
-      mov ah,'c'
-      cmp al,ah
-      jz PressKeyExit
-      jmp PressKey
-    PressKeyExit:
-    push ax   
-    mov ah,07
-    int 21h
     pop ax
-    mov ah,'s'
-    cmp al,ah
-    jz SMode
-    mov ah,'m'
-    cmp al,ah
-    jz MMode
-    mov ah,'s'
-    cmp al,ah
-    jz CMode
+    RET
+MoveCursor Endp
 
-    SMode:
-      mov mode,1
-      jmp MainMenuEnd
-    MMode:
-      mov mode,2
-      jmp MainMenuEnd
-    CMode:
-      mov mode,3
-      jmp MainMenuEnd
 
-    MainMenuEnd: 
+
+ScrollSend proc
+    push ax
+    push dx
+    push cx
+    push bx
+    mov ax, 0601h
+    mov cx,0
+    mov DH,11
+    mov DL,79
+    mov BH, 07h
+    int 10H
+    pop bx
+    pop cx
+    pop dx
+    pop ax
+    RET
+ScrollSend Endp
+
+
+
+ScrollRecive proc
+    push ax
+    push dx
+    push cx
+    push bx
+    mov ax, 0601h
+    mov ch,0dh
+    mov cl,00h
+    mov DH,24
+    mov DL,79
+    mov BH, 07h
+    int 10H
+    pop bx
+    pop cx
+    pop dx
+    pop ax
+    RET
+ScrollRecive Endp
+
+Multiplayer proc
+    
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    mov IsMultiplayer,1
+
+    ; initinalizitions
+    mov dx,3fbh 			
+    mov al,10000000b		
+    out dx,al				
+    mov dx,3f8h			
+    mov al,0ch			
+    out dx,al
+    mov dx,3f9h
+    mov al,00h
+    out dx,al
+    mov dx,3fbh
+    mov al,00011011b
+    out dx,al
+
+    
+        
+
+    CheckForPuffer1:
+        mov dx , 3FDH		
+    	in al , dx
+        AND al , 1
+        jz HstHelper
+        mov dx,3f8h
+        in al,dx
+        cmp al,00000001b
+        je join
+    
+    HstHelper:
+        call GraphicsMode
+        call WaitingScreen
+
+    Hst:    
+        mov dx,3FDH
+        in al,dx
+        and al,00100000b
+        jz Hst   
+        mov dx,3f8h
+        mov al,00000001b
+        out dx,al
+        chkoined:
+                mov al,0
+                mov ah,01h
+                int 16h
+            jz noescapeEntered
+            mov ah,00h
+            int 16h
+            cmp al,1Bh
+            je EndMultiplayer
+            noescapeEntered:
+            mov dx , 3FDH		
+    	    in al , dx 
+            AND al , 1
+            jz chkoined
+            mov dx,3f8h
+            in al,dx
+            cmp al,00000010b
+            jne chkoined
+        call PlayHost
+        jmp EndMultiplayer
+    join: 
+        chkhst:
+            mov dx,3FDH
+            in al,dx
+            and al,00100000b
+            jz chkhst
+        mov dx,3f8h
+        mov al,00000010b
+        out dx,al
+        call PlayJoined
+        jmp EndMultiplayer
+       
+    EndMultiplayer:
+        mov IsMultiplayer,0
+        pop si
+        pop dx
+        pop cx
+        pop bx
+        pop ax
+        RET
+Multiplayer Endp
+
+
+PlayHost proc
+    push ax
+    push cx
+    mov ballslowconst,45
+    call GraphicsMode
+    call DrawBricks
+    call DrawJoined
+    mov BricksCount,40
+    mov lives,3
+
+    restartHost:
+        call DeleteBall
+        mov needrestart,0
+        call DrawPaddle
+        call SetBallValues
+        call DrawBall
+        call DrawJoined
+
+
+    ReadInputHost:
+        cmp lives,0
+        je HostLost
+        cmp BricksCount,20
+        jb HostWin
+
+        mov al,0
+        mov ah, 01h         
+        int 16h     
+        jz CHK_M1
+        mov ah, 00h        
+        int 16h  ;the input now in al do what u want
+
+        ;moving the paddle
+        cmp al,1Bh
+        je EndHost
+        mov cx,PaddleSpeed
+        cmp al,97
+        je Hostmolf
+        cmp al,100
+        je Hostmort
+        cmp al,20h
+        jne CHK_M1
+        cmp vy,0
+        jne CHK_M1
+        mov vy,1
+
+        ;Check that Data Ready from UART
+    CHK_M1:    mov dx , 3FDH		; Line Status Register
+    	    in al , dx 
+            AND al , 1
+            JZ HostnoKey    ; if there is not char in uart go check for key pressed
+
+    ;If Ready read the rec in Receive data register
+            mov dx , 03F8H
+            in al , dx 
+            call MultiplayerHostRecieve
+
+        HostnoKey:
+        call MoveBall
+        call MultiplayerHostSendNoKey
+        cmp needrestart,1
+        je restartHost
+
+        call UpdateScore
+        call DrawLives
+        jmp ReadInputHost      ; Continue checking for input        
+
+        Hostmolf:
+            Call Moveleft
+            Call MultiplayerHostSendLeft
+            dec cx
+            jnz Hostmolf
+            jmp CHK_M1
+
+        Hostmort:
+            call Moveright
+            Call MultiplayerHostSendRight
+            dec cx
+            jnz Hostmort
+            jmp CHK_M1
+
+        HostLost:
+            call GraphicsMode
+            call SendLost  
+            call YouLost      
+            mov cx,1000
+            call Delay
+            jmp EndHost
+
+        Hostwin:
+            call GraphicsMode
+            call SendWin  
+            call YouWon
+            mov cx,1000
+            call Delay
+            jmp EndHost    
+
+
+
+    EndHost:
+        pop cx
+        pop ax
+        RET
+PlayHost Endp
+    
+PlayJoined proc 
+    push ax
+    push cx
+    
+    call GraphicsMode
+    call DrawBricks
+    call DrawJoined
+    mov BricksCount,40
+    call Drawpaddle
+    mov score2,'0'
+    mov score2[1],'0'
+    
+    restartJoined:
+        call DeleteBall
+        mov needrestart,0
+        call DrawPaddle
+        call SetBallValues
+        call DrawBall
+        call DrawJoined
+        
+
+    ReadJoinedInput:
+        mov al,0
+        mov ah, 01h         
+        int 16h     
+        jz CHK_M
+        mov ah, 00h        
+        int 16h  ;the input now in al do what u want
+
+        mov cx,PaddleSpeed
+        cmp al,1Bh
+        je EndJoined
+        cmp al,97
+        je Joinedmolf
+        cmp al,100
+        je Joinedmort
+        cmp al,20h
+        jne CHK_M
+        cmp vy,0
+        jne CHK_M
+        mov vy,1
+
+        ;Check that Data Ready from UART
+    CHK_M:    mov dx , 3FDH		; Line Status Register
+    	    in al , dx 
+            AND al , 1
+            JZ JoinednoKey    ; if there is not char in uart go check for key pressed
+
+    ;If Ready read the rec in Receive data register
+            mov dx , 03F8H
+            in ax , dx
+            cmp al,00000001b
+            jz JoinedLost
+            cmp al,00000010b
+            jz JoinedWin
+            cmp al,00000011b
+            jz IncScore2_M
+
+
+            call MultiplayerJoinedRecieve
+            jmp JoinednoKey
+        IncScore2_M:
+          call IncScore2
+          
+
+        JoinednoKey:
+            call UpdateScore2
+            jmp ReadJoinedInput
+
+        Joinedmolf:
+            call moveJRight
+            call MultiplayerJoinedSendRight
+            dec cx
+            jnz Joinedmolf
+            jmp CHK_M
+
+        Joinedmort:
+            call MoveJleft
+            call MultiplayerJoinedSendLeft
+            dec cx
+            jnz Joinedmort
+            jmp CHK_M
+
+
+       
+
+        JoinedLost:
+            call GraphicsMode 
+            call YouLost
+            mov cx,1000
+            call Delay
+            jmp EndJoined
+
+        JoinedWin:
+            call GraphicsMode  
+            call YouWon
+            mov cx,1000
+            call Delay
+            jmp EndJoined  
+    
+
+    EndJoined:
+        pop cx
+        pop ax
+        RET
+PlayJoined Endp
+
+
+DrawJoined proc
+    push cx
+    push dx
+    push ax
+    mov cx,JPaddlex1
+    JLoopOnX:
+        mov dx,JPaddley1
+        JLooponY:
+            mov al,09h 
+            mov ah,0ch
+            int 10h    ;pix(cx,dx) = color
+            inc dx
+            cmp dx,JPaddley2
+            jbe JLooponY
+        inc cx
+        cmp cx,JPaddlex2
+        jbe JLoopOnX 
+    pop ax    
     pop dx
     pop cx
-    pop bx
-    pop ax   
+    RET
+DrawJoined Endp
+
+
+moveJRight Proc
+    cmp JPaddlex1,0
+    je Jreturnr
+    
+    push cx
+    push dx
+    
+    ;remove the old part
+    mov cx,JPaddlex2
+    mov dx,JPaddley1
+
+    delYrJ:
+        mov al,00h 
+        mov ah,0ch
+        int 10h    ;pix(cx,dx) = color
+        inc dx
+        cmp dx,JPaddley2
+        jbe delYrJ
+   
+    ;new paddle coordinanets
+    dec JPaddlex1
+    dec JPaddlex2
+   
+   ;draw the new part
+    mov cx,JPaddlex1
+    mov dx,JPaddley1  
+
+    drwYrJ:
+        mov al,09h 
+        mov ah,0ch
+        int 10h    ;pix(cx,dx) = color
+        inc dx
+        cmp dx,JPaddley2
+        jbe drwYrJ
+
+    pop dx
+    pop cx
+
+    Jreturnr: RET
+moveJRight Endp
+
+
+MoveJleft proc
+    cmp JPaddlex2,319
+    je Jreturnl
+    
+    push cx
+    push dx
+    push ax
+
+    ;remove the old part
+    mov cx,JPaddlex1
+    mov dx,JPaddley1
+
+    delYlJ:
+        mov al,00h 
+        mov ah,0ch
+        int 10h    ;pix(cx,dx) = color
+        inc dx
+        cmp dx,JPaddley2
+        jbe delYlJ
+   
+    ;new paddle coordinanets
+    inc JPaddlex1
+    inc JPaddlex2
+   
+   ;draw the new part
+    mov cx,JPaddlex2
+    mov dx,JPaddley1  
+
+    drwYlJ:
+        mov al,09h 
+        mov ah,0ch
+        int 10h    ;pix(cx,dx) = color
+        inc dx
+        cmp dx,JPaddley2
+        jbe drwYlJ
+
+    pop ax
+    pop dx
+    pop cx
+
+    Jreturnl: RET
+MoveJleft Endp
+
+MultiplayerHostRecieve proc
+  cmp al,11111110b
+  jz recL
+  cmp al,11111111b
+  jz recR
+  recL:
+    call MoveJleft
+    jmp exitMHR
+  recR:
+    call moveJRight
+    jmp exitMHR
+
+    exitMHR:
+    RET
+MultiplayerHostRecieve endp
+
+MultiplayerJoinedRecieve proc
+    push ax 
+    push bx
+    push si
+    cmp al,11110100b
+    jz recRnB
+    cmp al,11110101b
+    jz recRB1
+    cmp al,11110110b
+    jz recRB2
+    cmp al,11110111b
+    jz recRB3
+    cmp al,11111101b
+    jz recRB4
+    cmp al,11111110b
+    jz recRB5
+    cmp al,11111111b
+    jz recRB6H
+    call MultiplayerJoinedRecieve3
+    call MultiplayerJoinedRecieve2
+    jmp brick_M
+
+
+    recRnB:
+      call Moveright
+      mov vy,0
+      call DeleteBall
+      call SetBallValues
+      call DrawBall
+      jmp exitMJR
+
+    recRB6H:
+     jmp recRB6
+    recRB1:
+      call Moveright
+      mov vy,1
+      mov vx,0
+      call MoveBall
+      jmp exitMJR
+    recRB2:
+      call Moveright
+      mov vy,1
+      mov vx,1
+      call MoveBall
+      jmp exitMJR
+    recRB3:
+      call Moveright
+      mov vy,1
+      mov vx,-1
+      call MoveBall
+      jmp exitMJR
+    recRB4:
+      call Moveright
+      mov vy,-1
+      mov vx,0
+      call MoveBall
+      jmp exitMJR
+    recRB5:
+      call Moveright
+      mov vy,-1
+      mov vx,1
+      call MoveBall
+      jmp exitMJR
+    recRB6:
+      call Moveright
+      mov vy,-1
+      mov vx,-1
+      call MoveBall
+      jmp exitMJR
+    
+    brick_M:
+    cmp ah,0
+    jbe exitMJR
+    
+    mov bx,0
+    mov bl,ah
+    mov si,bx
+    sub si,1
+   ; call DestroyBricK 
+    
+    exitMJR:
+    pop si
+    pop bx 
+    pop ax
+    RET
+MultiplayerJoinedRecieve endp
+
+MultiplayerJoinedRecieve2 proc
+    push ax
+    cmp al,11100100b
+    jz recNnB
+    cmp al,11100101b
+    jz recNB1
+    cmp al,11100110b
+    jz recNB2
+    cmp al,11100111b
+    jz recNB3
+    cmp al,11101101b
+    jz recNB4
+    cmp al,11101110b
+    jz recNB5
+    cmp al,11101111b
+    jz recNB6
+    jmp exitMJR2
+    recNnB:
+      mov vy,0
+      call DeleteBall
+      call SetBallValues
+      call DrawBall
+      jmp exitMJR2
+    recNB1:
+      mov vy,1
+      mov vx,0
+      call MoveBall
+      jmp exitMJR2
+    recNB2:
+      mov vy,1
+      mov vx,1
+      call MoveBall
+      jmp exitMJR2
+    recNB3:
+      mov vy,1
+      mov vx,-1
+      call MoveBall
+      jmp exitMJR2
+    recNB4:
+      mov vy,-1
+      mov vx,0
+      call MoveBall
+      jmp exitMJR2
+    recNB5:
+      mov vy,-1
+      mov vx,1
+      call MoveBall
+      jmp exitMJR2
+    recNB6:
+      mov vy,-1
+      mov vx,-1
+      call MoveBall
+      jmp exitMJR2
+    exitMJR2:
+    pop ax
+    RET
+MultiplayerJoinedRecieve2 endp
+
+MultiplayerJoinedRecieve3 proc
+    push ax
+    cmp al,11110000b 
+    jz recLnB
+    cmp al,11110001b
+    jz recLB1
+    cmp al,11110010b
+    jz recLB2
+    cmp al,11110011b
+    jz recLB3
+    cmp al,11111001b
+    jz recLB4
+    cmp al,11111010b
+    jz recLB5
+    cmp al,11111011b
+    jz recLB6H
+    jmp exitMJR3
+
+    recLnB:
+      call Moveleft
+      mov vy,0
+      call DeleteBall
+      call SetBallValues
+      call DrawBall
+      jmp exitMJR3
+
+    recLB6H:
+      jmp recLB6
+    recLB1:
+      call Moveleft
+      mov vy,1
+      mov vx,0
+      call MoveBall
+      jmp exitMJR3
+    recLB2:
+      call Moveleft
+      mov vy,1
+      mov vx,1
+      call MoveBall
+      jmp exitMJR3
+    recLB3:
+      call Moveleft
+      mov vy,1
+      mov vx,-1
+      call MoveBall
+      jmp exitMJR3
+    recLB4:
+      call Moveleft
+      mov vy,-1
+      mov vx,0
+      call MoveBall
+      jmp exitMJR3
+    recLB5:
+      call Moveleft
+      mov vy,-1
+      mov vx,1
+      call MoveBall
+      jmp exitMJR3
+    recLB6:
+      call Moveleft
+      mov vy,-1
+      mov vx,-1
+      call MoveBall
+      jmp exitMJR3
+
+      exitMJR3:
+      pop ax
+      RET
+MultiplayerJoinedRecieve3 endp
+
+
+MultiplayerHostSendLeft proc
+    push ax
+    push dx
+    mov dx , 3FDH		; Line Status Register
+
+              sendCheck_M1:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_M1
+           cmp vy,0
+           jz movLnB
+           cmp vy,1
+           jz movLCheck
+           cmp vy,-1
+           jz movLCheck2
+
+          movLCheck: 
+           cmp vx,0
+           jz movLB1
+           cmp vx,1
+           jz movLB2
+           cmp vx,-1
+           jz movLB3
+
+          movLCheck2:
+           cmp vx,0
+           jz movLB4
+           cmp vx,1
+           jz movLB5
+           cmp vx,-1
+           jz movLB6
+
+           movLnB:
+            mov al,11110000b
+            jmp movLS
+           movLB1:
+            mov al,11110001b
+            jmp movLS 
+           movLB2:
+            mov al,11110010b
+            jmp movLS
+           movLB3:
+            mov al,11110011b
+            jmp movLS 
+           movLB4:
+            mov al,11111001b
+            jmp movLS 
+           movLB5:
+            mov al,11111010b
+            jmp movLS
+           movLB6:
+            mov al,11111011b
+            jmp movLS
+           movLS:
+           mov dx , 3F8H		; Transmit data register
+           mov ah,byte ptr brickSend
+           mov brickSend,0
+           out dx , ax
+    MHSL_exit:
+    pop dx
+    pop ax
+    RET
+MultiplayerHostSendLeft endp
+
+MultiplayerHostSendRight proc
+            push ax
+            push dx
+           mov dx , 3FDH		; Line Status Register
+
+              sendCheck_Mw:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_Mw
+           cmp vy,0
+           jz movRnB
+           cmp vy,1
+           jz movRCheck
+           cmp vy,-1
+           jz movRCheck2
+
+          movRCheck: 
+           cmp vx,0
+           jz movRB1
+           cmp vx,1
+           jz movRB2
+           cmp vx,-1
+           jz movRB3
+
+          movRCheck2:
+           cmp vx,0
+           jz movRB4
+           cmp vx,1
+           jz movRB5
+           cmp vx,-1
+           jz movRB6
+
+           movRnB:
+            mov al,11110100b
+            jmp movRS
+           movRB1:
+            mov al,11110101b
+            jmp movRS 
+           movRB2:
+            mov al,11110110b
+            jmp movRS
+           movRB3:
+            mov al,11110111b
+            jmp movRS
+           movRB4:
+            mov al,11111101b
+            jmp movRS 
+           movRB5:
+            mov al,11111110b
+            jmp movRS
+           movRB6:
+            mov al,11111111b
+            jmp movRS 
+           movRS:
+           mov dx , 3F8H		; Transmit data register
+           mov ah,byte ptr brickSend
+           mov brickSend,0
+           out dx , ax
+
+    pop dx
+    pop ax
+   RET
+MultiplayerHostSendRight endp
+
+MultiplayerHostSendNoKey proc
+    push ax
+    push dx
+    mov dx , 3FDH		; Line Status Register
+
+              sendCheck_M5:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_M5
+           cmp vy,0
+           jz movNnB
+           cmp vy,1
+           jz movNCheck
+           cmp vy,-1
+           jz movNCheck2
+
+          movNCheck: 
+           cmp vx,0
+           jz movNB1
+           cmp vx,1
+           jz movNB2
+           cmp vx,-1
+           jz movNB3
+
+          movNCheck2:
+           cmp vx,0
+           jz movNB4
+           cmp vx,1
+           jz movNB5
+           cmp vx,-1
+           jz movNB6
+
+           movNnB:
+            mov al,11100100b
+            jmp movNS
+           movNB1:
+            mov al,11100101b
+            jmp movNS 
+           movNB2:
+            mov al,11100110b
+            jmp movNS
+           movNB3:
+            mov al,11100111b
+            jmp movNS
+           movNB4:
+            mov al,11101101b
+            jmp movNS 
+           movNB5:
+            mov al,11101110b
+            jmp movNS
+           movNB6:
+            mov al,11101111b
+            jmp movNS  
+           movNS:
+           mov dx , 3F8H		; Transmit data register
+           mov ah,byte ptr brickSend
+           mov brickSend,0
+           out dx , ax
+    pop dx
+    pop ax
+   RET
+MultiplayerHostSendNoKey endp
+
+MultiplayerJoinedSendLeft proc
+    push ax
+    push dx
+           mov dx , 3FDH		; Line Status Register
+
+              sendCheck_M3:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_M3
+           mov al,11111110b
+           mov dx , 3F8H		; Transmit data register
+           out dx , al
+    pop dx
+    pop ax        
+   RET
+MultiplayerJoinedSendLeft endp
+
+MultiplayerJoinedSendRight proc
+            push ax
+            push dx
+           mov dx , 3FDH		; Line Status Register
+
+              sendCheck_M4:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_M4
+           mov al,11111111b
+           mov dx , 3F8H		; Transmit data register
+           out dx , al
+    pop dx
+    pop ax
+   RET
+MultiplayerJoinedSendRight endp
+
+SendWin proc
+    push ax
+    push dx
+  mov dx , 3FDH		; Line Status Register
+
+              sendCheck_M6:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_M6
+           mov al,00000001b
+           mov dx , 3F8H		; Transmit data register
+           out dx , al
+    pop dx
+    pop ax
+   RET
+SendWin endp
+
+SendLost proc
+push ax
+push dx
+  mov dx , 3FDH		; Line Status Register
+
+              sendCheck_M7:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_M7
+           mov al,00000010b
+           mov dx , 3F8H		; Transmit data register
+           out dx , al
+   pop dx
+    pop ax        
+   RET
+SendLost endp
+
+DrawLives Proc
+    push ax
+    push dx
+    mov dh,23
+    mov dl,36
+    mov ah,02h
+    int 10h
+
+
+
+    mov ah,02h
+    mov dl,lives
+    add dl,'0'
+    int 21h
+    pop dx
+    pop ax 
+    RET
+DrawLives Endp
+
+IncScore2 proc
+    cmp Score2[1],'9'
+    jne NormalAdd2
+    mov Score2[1],'0'
+    inc Score2[0]
+    NormalAdd2: inc Score2[1]
+    RET
+IncScore2 endp
+
+UpdateScore2 proc
+    push dx
+    push ax
+    
+    mov dh,23
+    mov dl,5
+    mov ah,02h
+    int 10h
+
+    mov ah,02h
+    mov dl,Score2[0]
+    int 21h
+
+    mov dh,23
+    mov dl,6
+    mov ah,02h
+    int 10h
+
+    mov ah,02h
+    mov dl,Score2[1]
+    int 21h
+
+    pop ax
+    pop dx
     ret
-MainMenu endp
+UpdateScore2 endp
+
+sendIncScore proc
+push ax
+    push dx
+           mov dx , 3FDH		; Line Status Register
+
+              sendCheck_M9:  
+                In al , dx 			;Read Line Status
+                AND al , 00100000b
+                JZ sendCheck_M9
+           mov al,00000011b
+           mov dx , 3F8H		; Transmit data register
+           out dx , al
+    pop dx
+    pop ax        
+   RET
+sendIncScore endp
 
 End Main
 
